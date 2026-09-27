@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>장바구니에 담아둔 그 물건, 진짜 결제해도 될까?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --surface: #FFFBF7;
+    --surface-line: #EDE1D6;
+    --text: #241A16;
+    --text-muted: #8A7A70;
+    --green: #1C8C5C;
+    --green-soft: #DEF5EA;
+    --yellow: #E08900;
+    --yellow-soft: #FFF0D6;
+    --red: #FF5A5F;
+    --red-soft: #FFE3E4;
+    --shadow: 0 18px 40px -22px rgba(36,26,22,0.35);
+    --radius: 22px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1B1613;
+      --surface: #251E1A;
+      --surface-line: #3A2F28;
+      --text: #F5ECE6;
+      --text-muted: #B6A69C;
+      --green-soft: #163A2C;
+      --yellow-soft: #3A2E14;
+      --red-soft: #402024;
+      --shadow: 0 18px 40px -18px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1B1613;
+    --surface: #251E1A;
+    --surface-line: #3A2F28;
+    --text: #F5ECE6;
+    --text-muted: #B6A69C;
+    --green-soft: #163A2C;
+    --yellow-soft: #3A2E14;
+    --red-soft: #402024;
+    --shadow: 0 18px 40px -18px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Gowun Dodum', sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap {
+    max-width: 480px; margin: 0 auto; padding: 28px 20px 48px;
+    min-height: 100%; display: flex; flex-direction: column;
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 8px; margin-bottom: 22px;
+    color: var(--text-muted); font-size: 13px; letter-spacing: 0.02em;
+  }
+  .brand b { color: var(--text); font-family: 'Black Han Sans', sans-serif; font-size: 15px; }
+
+  .screen { display: none; flex: 1; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  .receipt {
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 34px 26px 28px;
+    position: relative;
+  }
+  .receipt::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: -11px; height: 22px;
+    background:
+      linear-gradient(-45deg, var(--bg) 8px, transparent 0),
+      linear-gradient(45deg, var(--bg) 8px, transparent 0);
+    background-size: 16px 22px;
+    background-position: left bottom;
+  }
+  .tag {
+    display: inline-block; font-size: 12px; color: var(--red);
+    background: var(--red-soft); padding: 5px 11px; border-radius: 999px;
+    margin-bottom: 14px; font-weight: 700;
+  }
+  h1.title {
+    font-family: 'Black Han Sans', sans-serif; font-weight: 400;
+    font-size: 26px; line-height: 1.45; margin: 0 0 14px;
+  }
+  .desc { color: var(--text-muted); font-size: 15px; line-height: 1.7; margin: 0 0 22px; }
+  .meta-line {
+    display: flex; gap: 14px; font-size: 13px; color: var(--text-muted);
+    border-top: 1px dashed var(--surface-line); padding-top: 16px; font-family: monospace;
+  }
+
+  .cta {
+    margin-top: 26px; width: 100%; border: none; background: var(--text); color: var(--bg);
+    font-family: 'Gowun Dodum', sans-serif; font-weight: 700; font-size: 17px;
+    padding: 17px; border-radius: 16px; cursor: pointer;
+  }
+  .cta:focus-visible, .opt:focus-visible, .ghost-btn:focus-visible {
+    outline: 3px solid var(--red); outline-offset: 2px;
+  }
+  .cta:active { transform: scale(0.98); }
+
+  .signal-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 22px; }
+  .signal-chip { text-align: center; padding: 12px 4px; border-radius: 12px; font-size: 22px; }
+  .signal-chip span { display: block; font-size: 10.5px; margin-top: 5px; color: var(--text-muted); line-height: 1.4; }
+
+  .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .progress-track { flex: 1; height: 6px; background: var(--surface-line); border-radius: 999px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--red); border-radius: 999px; transition: width .35s ease; }
+  .q-count { font-family: monospace; font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+  .q-text {
+    font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: 21px;
+    line-height: 1.5; margin: 4px 0 24px;
+  }
+  .options { display: flex; flex-direction: column; gap: 11px; }
+  .opt {
+    text-align: left; background: var(--surface); border: 1.5px solid var(--surface-line);
+    border-radius: 15px; padding: 16px; font-family: 'Gowun Dodum', sans-serif;
+    font-size: 15.5px; line-height: 1.5; color: var(--text); cursor: pointer;
+    transition: border-color .15s ease, transform .1s ease;
+  }
+  .opt:hover { border-color: var(--red); }
+  .opt:active { transform: scale(0.985); }
+
+  .back-link {
+    background: none; border: none; color: var(--text-muted);
+    font-family: 'Gowun Dodum', sans-serif; font-size: 13px;
+    padding: 0; margin-top: 20px; cursor: pointer; align-self: flex-start; text-decoration: underline;
+  }
+
+  .result-emoji { font-size: 54px; line-height: 1; margin-bottom: 10px; }
+  .result-kicker { color: var(--text-muted); font-size: 13px; margin-bottom: 6px; font-family: monospace; }
+  .result-title {
+    font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: 26px; margin: 0 0 10px;
+  }
+  .result-line { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  .result-body {
+    font-size: 15px; line-height: 1.75; color: var(--text-muted); margin-bottom: 26px;
+    background: var(--bg); border: 1px dashed var(--surface-line); border-radius: 12px; padding: 14px;
+  }
+
+  .gauge { margin-bottom: 8px; }
+  .gauge-track {
+    position: relative; height: 14px; border-radius: 999px; overflow: visible;
+    background: linear-gradient(to right,
+      var(--green) 0%, var(--green) 31.25%,
+      var(--yellow) 31.25%, var(--yellow) 64.5%,
+      var(--red) 64.5%, var(--red) 100%);
+  }
+  .gauge-marker {
+    position: absolute; top: 50%; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--surface); border: 3px solid var(--text);
+    transform: translate(-50%, -50%); box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
+  .gauge-labels {
+    display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);
+    margin-top: 8px; font-family: monospace;
+  }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 22px; }
+  .ghost-btn {
+    flex: 1; padding: 15px; border-radius: 14px; border: 1.5px solid var(--surface-line);
+    background: transparent; color: var(--text); font-family: 'Gowun Dodum', sans-serif;
+    font-weight: 700; font-size: 14.5px; cursor: pointer;
+  }
+  .ghost-btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%) translateY(10px);
+    background: var(--text); color: var(--bg); padding: 11px 18px; border-radius: 999px;
+    font-size: 13.5px; opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><b>구매 결정 신호등</b> · 8문항</div>
+
+  <!-- 인트로 -->
+  <section class="screen active" id="screen-intro">
+    <div class="receipt">
+      <span class="tag">소비/지름 결정 도우미 🚦</span>
+      <h1 class="title">장바구니에 담아둔<br>그 물건,<br>진짜 결제해도 될까?</h1>
+      <p class="desc">이건 성향 테스트가 아니에요. 지금 고민 중인 <b>그 아이템 하나</b>를 놓고, 8가지 질문으로 냉정하게 판정해드립니다.</p>
+      <div class="meta-line">
+        <span>문항 08</span><span>·</span><span>약 2분</span><span>·</span><span>판정 3단계</span>
+      </div>
+    </div>
+
+    <div class="signal-preview">
+      <div class="signal-chip" style="background:var(--green-soft)">🟢<span>즉시 결제</span></div>
+      <div class="signal-chip" style="background:var(--yellow-soft)">🟡<span>48시간 보류</span></div>
+      <div class="signal-chip" style="background:var(--red-soft)">🔴<span>칼차단</span></div>
+    </div>
+
+    <button class="cta" id="btn-start">판정 시작하기</button>
+  </section>
+
+  <!-- 퀴즈 -->
+  <section class="screen" id="screen-quiz">
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="q-count" id="q-count">Q1/8</div>
+    </div>
+    <p class="q-text" id="q-text"></p>
+    <div class="options" id="options"></div>
+    <button class="back-link" id="btn-back">← 이전 질문</button>
+  </section>
+
+  <!-- 결과 -->
+  <section class="screen" id="screen-result">
+    <div class="receipt" id="result-card" style="margin-bottom:0;">
+      <div class="result-emoji" id="result-emoji"></div>
+      <div class="result-kicker" id="result-kicker"></div>
+      <h2 class="result-title" id="result-title"></h2>
+      <p class="result-line" id="result-line"></p>
+
+      <div class="gauge">
+        <div class="gauge-track">
+          <div class="gauge-marker" id="gauge-marker"></div>
+        </div>
+        <div class="gauge-labels"><span>즉시결제</span><span>48h 보류</span><span>칼차단</span></div>
+      </div>
+
+      <p class="result-body" id="result-body"></p>
+    </div>
+    <div class="btn-row">
+      <button class="ghost-btn" id="btn-retry">다시 진단하기</button>
+      <button class="ghost-btn primary" id="btn-save-image">결과 이미지 저장</button>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast">저장됐어요</div>
+
+<script>
+(function () {
+  const VERDICTS = [
+    { min: 8, max: 15, emoji: '🟢', name: '즉시 결제 승인', color: 'var(--green)',
+      line: '고민은 배송을 단지 늦출 뿐! 당장 카드를 꺼내세요.',
+      body: '당장 결제 완료 버튼을 누르시고 택배 기사님을 맞이하세요. (무이자 할부는 최대 3개월!)' },
+    { min: 16, max: 23, emoji: '🟡', name: '48시간 보류 및 냉각', color: 'var(--yellow)',
+      line: '지금은 도파민이 이성을 지배 중! 이틀만 더 장바구니에 재워두세요.',
+      body: '딱 48시간 동안 방치해 두세요. 모레 이맘때쯤에도 아른거리면 그때 사세요.' },
+    { min: 24, max: 32, emoji: '🔴', name: '칼차단 및 삭제', color: 'var(--red)',
+      line: 'STOP! 당신이 사고 싶은 건 물건이 아니라 일시적인 해방감입니다.',
+      body: '1초도 고민하지 말고 당장 \'삭제하기\'를 누르세요. 그 돈으로 맛있는 저녁이나 드세요!' },
+  ];
+
+  const QUESTIONS = [
+    { q: '이 물건을 처음 장바구니에 넣은 지 얼마나 되었나요?', opts: [
+      { w:1, text:'방금 막 꽂혀서 담았다. (열정 폭발 중)' },
+      { w:2, text:'며칠(3~5일) 정도 지났다.' },
+      { w:3, text:'일주일 이상 묵혀두었다.' },
+      { w:4, text:'언제 넣었는지 기억도 안 난다.' },
+    ]},
+    { q: '지금 당장 이 물건을 사지 않으면 내 일상에 어떤 문제가 생기나요?', opts: [
+      { w:1, text:'당장 죽거나 사는 데 지장은 없지만, 내 마음의 평화가 위협받는다.' },
+      { w:2, text:'있으면 확실히 삶의 질이 올라갈 것 같다.' },
+      { w:3, text:'솔직히 없어도 살 수 있지만, 그냥 예쁘고 갖고 싶다.' },
+      { w:4, text:'기억도 안 나는데 왜 장바구니에 들어있지?' },
+    ]},
+    { q: '이 물건의 가격, 내 통장 잔고와 비교했을 때 타격감은 어느 정도인가요?', opts: [
+      { w:1, text:'숨도 안 쉬고 결제해도 타격 0% (내 통장은 안전하다)' },
+      { w:2, text:'약간 고민되지만, 이번 달 커피 몇 잔 아끼면 충분히 커버 가능' },
+      { w:3, text:'이번 달 카드값과 생활비를 살짝 진지하게 걱정해야 한다.' },
+      { w:4, text:'절대 안 된다. 이거 사면 다음 주에 쫄쫄 굶거나 비상금을 털어야 한다.' },
+    ]},
+    { q: '이 물건과 비슷한 기능을 하거나 대체할 수 있는 물건이 이미 집에 있나요?', opts: [
+      { w:1, text:'전혀 없다. 이 세상에 대체 불가능한 유일무이한 아이템이다.' },
+      { w:2, text:'비슷한 게 있긴 한데... 이건 디자인이 다르거나 업그레이드된 거다.' },
+      { w:3, text:'찾아보면 집에 비슷한 물건이 나뒹굴고 있을지도 모른다.' },
+      { w:4, text:'이미 집에 똑같은 거나 비슷한 게 박스째로 있다.' },
+    ]},
+    { q: '이 물건에 대한 내 열정은 \'시간\'이 지날수록 어떻게 변하고 있나요?', opts: [
+      { w:1, text:'시간이 갈수록 더 타오른다. 유튜브 후기까지 다 섭렵함.' },
+      { w:2, text:'그냥 장바구니에 들어 있는 상태 그대로 유지 중.' },
+      { w:3, text:'솔직히 처음에 비해 열정이 반토막 났다.' },
+      { w:4, text:'며칠 지나고 보니 왜 담아뒀는지 현타가 온다.' },
+    ]},
+    { q: '만약 오늘 이 물건을 사지 못하고 품절되어 버린다면, 나의 감정은?', opts: [
+      { w:1, text:'세상이 무너질 것 같다. 당장 다른 판매처를 찾아낼 것이다.' },
+      { w:2, text:'조금 아쉽겠지만 뭐 인연이 아닌가 보다 하겠지.' },
+      { w:3, text:'솔직히 3일만 지나면 내가 이걸 사려고 했는지 기억도 못 할 것 같다.' },
+      { w:4, text:'품절되면 오히려 돈 굳었다고 안도할 것 같다.' },
+    ]},
+    { q: '이 물건을 사기 위해 내가 포기해야 하는 다른 것이 있나요?', opts: [
+      { w:1, text:'전혀 없다. 포기할 것 없이 여유롭다.' },
+      { w:2, text:'소소한 지출 몇 개만 줄이면 포기할 수 있는 수준이다.' },
+      { w:3, text:'이 물건을 사려면 다른 중요한 지출이나 예산을 포기해야 해서 뼈아프다.' },
+      { w:4, text:'이걸 사면 생활 자체가 흔들린다.' },
+    ]},
+    { q: '지금 이 지름은 \'진짜 필요\'인가요, 아니면 오늘 하루 스트레스를 해소하기 위한 \'도파민 충전\'인가요?', opts: [
+      { w:1, text:'내 실질적인 필요와 가치관에 완벽히 부합하는 갓성비/고효율 소비다.' },
+      { w:2, text:'필요도 있지만, 솔직히 일하면서 받은 스트레스 보상 심리가 반쯤 섞여 있다.' },
+      { w:3, text:'필요는 핑계고, 그냥 택배 박스를 뜯는 자극과 쾌감이 필요하다.' },
+      { w:4, text:'그냥 아무 생각 없이 장바구니 구경하다가 홀린 것이다.' },
+    ]},
+  ];
+
+  let current = 0;
+  let answers = []; // weight numbers
+  let shuffledCache = [];
+  let activeQuestions = QUESTIONS;
+
+  const screens = {
+    intro: document.getElementById('screen-intro'),
+    quiz: document.getElementById('screen-quiz'),
+    result: document.getElementById('screen-result'),
+  };
+  function show(name) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function renderQuestion() {
+    const qData = activeQuestions[current];
+    document.getElementById('q-count').textContent = 'Q' + (current + 1) + '/' + activeQuestions.length;
+    document.getElementById('progress-fill').style.width = ((current) / activeQuestions.length * 100) + '%';
+    document.getElementById('q-text').textContent = qData.q;
+    document.getElementById('btn-back').style.visibility = current === 0 ? 'hidden' : 'visible';
+
+    if (!shuffledCache[current]) {
+      shuffledCache[current] = shuffle(qData.opts);
+    }
+    const opts = shuffledCache[current];
+
+    const wrap = document.getElementById('options');
+    wrap.innerHTML = '';
+    opts.forEach(o => {
+      const btn = document.createElement('button');
+      btn.className = 'opt';
+      btn.type = 'button';
+      btn.textContent = o.text;
+      btn.addEventListener('click', () => selectAnswer(o.w));
+      wrap.appendChild(btn);
+    });
+  }
+
+  function selectAnswer(weight) {
+    answers[current] = weight;
+    current += 1;
+    if (current >= activeQuestions.length) {
+      document.getElementById('progress-fill').style.width = '100%';
+      setTimeout(showResult, 150);
+    } else {
+      renderQuestion();
+    }
+  }
+
+  document.getElementById('btn-back').addEventListener('click', () => {
+    if (current > 0) {
+      current -= 1;
+      renderQuestion();
+    }
+  });
+
+  document.getElementById('btn-start').addEventListener('click', () => {
+    current = 0;
+    answers = [];
+    shuffledCache = [];
+    activeQuestions = shuffle(QUESTIONS);
+    show('quiz');
+    renderQuestion();
+  });
+
+  document.getElementById('btn-retry').addEventListener('click', () => {
+    current = 0;
+    answers = [];
+    shuffledCache = [];
+    show('intro');
+  });
+
+  function showResult() {
+    const total = answers.reduce((sum, w) => sum + w, 0);
+    const verdict = VERDICTS.find(v => total >= v.min && total <= v.max) || VERDICTS[1];
+
+    document.getElementById('result-emoji').textContent = verdict.emoji;
+    document.getElementById('result-kicker').textContent = '총점 ' + total + ' / 32';
+    document.getElementById('result-title').textContent = verdict.name;
+    document.getElementById('result-title').style.color = verdict.color;
+    document.getElementById('result-line').textContent = verdict.line;
+    document.getElementById('result-body').textContent = verdict.body;
+
+    const minScore = 8, maxScore = 32;
+    const pct = ((total - minScore) / (maxScore - minScore)) * 100;
+    document.getElementById('gauge-marker').style.left = pct + '%';
+
+    show('result');
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  document.getElementById('btn-save-image').addEventListener('click', async () => {
+    const node = document.getElementById('result-card');
+    if (typeof html2canvas === 'undefined') {
+      showToast('이미지 생성 기능을 불러오지 못했어요. 잠시 후 다시 시도해주세요');
+      return;
+    }
+    try {
+      const bgColor = getComputedStyle(document.body).backgroundColor || '#ffffff';
+      const canvas = await html2canvas(node, { scale: 2, backgroundColor: bgColor, useCORS: true });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = '구매결정_신호등_결과.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('이미지가 저장됐어요!');
+    } catch (e) {
+      showToast('이미지 저장에 실패했어요');
+    }
+  });
+})();
+</script>
+</body>
+</html>
